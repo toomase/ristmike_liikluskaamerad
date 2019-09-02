@@ -1,0 +1,300 @@
+---
+title: "R Notebook"
+---
+
+
+
+```{r}
+library(image.darknet)
+library(tidyverse)
+```
+
+
+Download  new model with weights
+```{r}
+yolov3_tiny_cfg <- file.path(system.file(package="image.darknet", "include", "darknet", "cfg"), "yolov3-tiny.cfg")
+download.file(url = "http://pjreddie.com/media/files/alexnet.weights", destfile = yolov3_tiny_cfg)
+
+
+yolov3_tiny_weights <- file.path(system.file(package="image.darknet", "models"), "yolov3-tiny.weights")
+download.file(url = "https://pjreddie.com/media/files/yolov3-tiny.weights", destfile = yolov3_tiny_weights)
+```
+
+
+
+```{r}
+yolov3_tiny_voc <- image_darknet_model(type = "detect", 
+                                     model = file.path(system.file(package="image.darknet", "include", "darknet", "cfg"), "yolo.cfg"), 
+                                     weights = system.file(package = "image.darknet", "models", "yolo.weights"),
+                                     labels = system.file(package = "image.darknet", "include", 
+                                                          "darknet", "data", "coco.names"))
+```
+
+```{r}
+image_darknet_detect(file = "data/person.jpg", 
+                                    object = yolov3_tiny_voc,
+                                    threshold = 0.01)
+```
+
+
+
+```{r}
+yolo_tiny_voc <- image_darknet_model(type = "detect", 
+                                     model = "tiny-yolo-voc.cfg", 
+                                     weights = system.file(package = "image.darknet", "models", "tiny-yolo-voc.weights"),
+                                     labels = system.file(package = "image.darknet", "include", 
+                                                          "darknet", "data", "voc.names"))
+```
+
+```{r}
+image_darknet_detect(file = "data/red_light_pic/1563999347.jpg", 
+                                    object = yolo_tiny_voc,
+                                    threshold = 0.1)
+```
+
+
+## testing
+
+```{r}
+library(rvest)
+library(tidyverse)
+
+read_html(x = "test.nb.html") %>% 
+  html_nodes("pre+ pre") %>% 
+  .[2] %>% 
+  html_text() %>% 
+  tibble() %>% 
+  select(t = 1) %>% 
+  tidyr::separate_rows(t, sep = ":") %>% 
+  filter(str_detect(t, "person"))
+
+?separate_rows
+```
+
+
+
+```{r}
+library(magick)
+```
+
+
+```{r}
+t <- image_read("data/cam104 (4).jpg")
+
+
+```
+
+```{r}
+image_crop(t, "100x150+50")
+
+image_read("data/cam104 (5).jpg") %>% 
+  # image_rotate(-50) %>% 
+  image_crop(geometry_area(width = 400, height = 500, x_off= 0, y_off = 100)) %>% 
+  # image_rotate(50) %>% 
+  # image_crop(geometry_area(width = 900, height = 500, x_off= 0, y_off = 0))
+  image_write("data/rot.jpg")
+  
+  
+image_fill(t, "blue", "+800+500", fuzz = 20)
+```
+
+```{r}
+image_fill(image, "blue", "+100+200")
+```
+
+```{r}
+u <- image_read("http://ristmikud.tallinn.ee/last/cam104.jpg")
+
+u
+
+u %>% 
+  # image_crop(geometry_area(width = 1100, height = 600, x_off= 0, y_off = 250)) %>% 
+  image_write("data/rot.jpg")
+```
+
+
+Resrtart R when too much memory is allocated.
+```{r}
+.rs.restartR()  
+```
+
+
+
+Transform picture and save
+```{r}
+u <- image_read("http://ristmikud.tallinn.ee/last/cam104.jpg")
+
+u
+
+u %>% 
+  image_crop(geometry_area(width = 1100, height = 600, x_off= 0, y_off = 250)) %>%
+  image_write("data/rot.jpg")
+
+as.numeric(Sys.time())
+
+magick::
+```
+
+
+```{r}
+extract_red_light_image <- function(x){
+  
+  # peata laadimine 5-10 sekundiks
+  Sys.sleep(runif(n = 1, min = 5, max = 10))
+  
+  # lae kaamera pilt
+  pic <- image_read("http://ristmikud.tallinn.ee/last/cam104.jpg")
+  
+  # tuvasta foorituli
+  light <- pic %>% 
+    image_crop(geometry_area(width = 10, height = 10, x_off= 1170, y_off = 375)) %>% 
+    as.raster() %>% 
+    col2rgb() %>% 
+    t() %>%  # transpose matrix
+    as.tibble() %>% 
+    rename(r = red, g = green, b = blue) %>% 
+    summarise_all(mean) %>% 
+    mutate(light = ifelse(r > 100 & g > 100 & b > 100, "red", "green")) %>% 
+    pull(light)
+  
+  # kui autodel on roheline tuli, siis lae pilt alla
+  if (light == "green"){
+      
+    pic %>% 
+      # image_crop(geometry_area(width = 1100, height = 600, x_off= 0, y_off = 250)) %>%
+      image_write(str_c("data/red_light_pic/", round(as.numeric(Sys.time()), 0), ".jpg"))
+  }
+  
+}
+```
+
+```{r}
+library(tictoc)
+```
+
+
+```{r message=FALSE, echo=FALSE}
+tic()
+map(1:100, extract_red_light_image)
+toc()
+```
+
+
+
+
+```{r}
+library(rstudioapi)
+
+run_script <- function(x){
+  
+  restartSession("source('script.R', echo = TRUE)")
+  
+}
+
+pwalk(list(1:3), run_script)
+
+```
+
+
+
+
+
+
+How to capture tha output of image detection:
+
+https://stackoverflow.com/questions/36052902/capture-output-of-system-command-within-a-function-in-r
+```{r}
+library(Rcpp)
+cppFunction('void redir(){FILE* F=freopen("/tmp/capture.txt","w+",stdout);}')
+cppFunction('void resetredir(){FILE* F=freopen("/dev/tty","w+",stdout);}')
+```
+
+```{r}
+
+redir()
+
+image_darknet_detect(file = path, 
+                     object = yolo_tiny_voc,
+                     threshold = 0.1)
+
+resetredir()
+```
+
+```{r}
+length(read_lines("/tmp/capture.txt"))
+```
+
+
+1. lae alla kaamera pilt
+2. tuvasta foori tuli
+3.1. kui autodel on punane, siis tuvasta info pildilt
+3.2. kui autodel on roheline, siis ära tee midagi ja
+4. 
+
+
+```{r}
+install.packages("benchmarkme")
+```
+
+
+```{r}
+gc()
+benchmarkme::get_ram()
+benchmarkme::get_cpu()
+
+gc()
+as.numeric(system("awk '/MemFree/ {print $2}' /proc/meminfo", intern = TRUE))
+```
+
+
+892460 = 1.12
+701568 = 1.3
+634064 = 1.36
+
+1241012 = 0.85
+1033072 = 1.00
+
+
+
+
+```{r}
+image_darknet_detect(file = "data/new_test.jpg", 
+                                    object = yolo_tiny_voc,
+                                    threshold = 0.1)
+```
+
+
+```{r}
+
+
+
+pic %>%
+  image_crop(geometry_area(width = 680, height = 680, x_off= 0, y_off = 200)) %>% 
+  image_write("data/new_test.jpg")
+
+
+%>% 
+  image_composite(mask, "plus")
+
+
+  pilt <- image_read(x) %>% 
+    image_crop(geometry_area(width = 80, height = 80, x_off = 30, y_off = 10))
+  
+  pilt <- image_composite(mask, pilt, "plus") %>% 
+    image_scale(50)  # tee pilt väiksemaks
+```
+
+```{r}
+library(OpenImageR)
+library(imager)
+```
+
+```{r}
+p <- readImage("data/new/1565558357.jpg")
+```
+
+
+```{r}
+install.packages("imager")
+```
+
