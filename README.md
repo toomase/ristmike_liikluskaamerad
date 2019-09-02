@@ -8,3 +8,5 @@ Jooksuta scriptid selles järjekorras, et pildid alla laadida > töödelda > obj
 4. 07_tuvasta_inimesed.R
 
 Lisaks on draft kaustas erinevaid katsetusi, kuidas kogu protsess jooksutada läbi in-real-time (st, etapid tehaks läbi ühekorraga).
+
+Analüüsi põhjal tehtud blogipostitus: http://eilat.ee/2019-09-03-punase-tulega-yle-tee/
